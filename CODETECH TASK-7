@@ -1,0 +1,78 @@
+import dash
+from dash import dcc, html, Input, Output
+import plotly.express as px
+import pandas as pd
+import numpy as np
+
+# 1. Create a Dataset
+np.random.seed(42)
+data_size = 300
+df = pd.DataFrame({
+    'Date': pd.date_range(start='2023-01-01', periods=data_size, freq='D'),
+    'Category': np.random.choice(['Electronics', 'Furniture', 'Clothing', 'Home Decor'], data_size),
+    'Region': np.random.choice(['North', 'South', 'East', 'West'], data_size),
+    'Sales': np.random.uniform(100, 2000, data_size).round(2),
+    'Profit': np.random.uniform(-100, 500, data_size).round(2)
+})
+
+# 2. Initialize the App
+app = dash.Dash(__name__)
+
+# 3. Define App Layout
+app.layout = html.Div([
+    html.H1("Business Sales Insights Dashboard", style={'textAlign': 'center'}),
+    
+    # Filter Controls
+    html.Div([
+        html.Label("Select Region:"),
+        dcc.Dropdown(
+            id='region-filter',
+            options=[{'label': r, 'value': r} for r in df['Region'].unique()],
+            value=df['Region'].unique().tolist(),
+            multi=True
+        ),
+        html.Br(),
+        dcc.DatePickerRange(
+            id='date-picker',
+            min_date_allowed=df['Date'].min(),
+            max_date_allowed=df['Date'].max(),
+            start_date=df['Date'].min(),
+            end_date=df['Date'].max()
+        )
+    ], style={'padding': '20px', 'width': '30%', 'display': 'inline-block'}),
+
+    # Visualizations
+    html.Div([
+        dcc.Graph(id='sales-trend-graph'),
+        dcc.Graph(id='category-profit-graph')
+    ], style={'width': '65%', 'display': 'inline-block', 'verticalAlign': 'top'})
+])
+
+# 4. Define Callbacks for Interactivity
+@app.callback(
+    [Output('sales-trend-graph', 'figure'),
+     Output('category-profit-graph', 'figure')],
+    [Input('region-filter', 'value'),
+     Input('date-picker', 'start_date'),
+     Input('date-picker', 'end_date')]
+)
+def update_dashboard(selected_regions, start_date, end_date):
+    # Filter data
+    filtered_df = df[
+        (df['Region'].isin(selected_regions)) &
+        (df['Date'] >= start_date) &
+        (df['Date'] <= end_date)
+    ]
+    
+    # Chart 1: Sales Trend
+    fig1 = px.line(filtered_df, x='Date', y='Sales', color='Region', title="Daily Sales Trends")
+    
+    # Chart 2: Profit by Category
+    fig2 = px.bar(filtered_df, x='Category', y='Profit', color='Category', 
+                  title="Profitability by Category", barmode='group')
+    
+    return fig1, fig2
+
+# 5. Run Server
+if __name__ == '__main__':
+    app.run_server(debug=True)
